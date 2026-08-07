@@ -1,0 +1,8 @@
+data/
+zip/
+*.zip
+*.pt
+*.ckpt
+__pycache__/
+processed_data/
+split_data/
