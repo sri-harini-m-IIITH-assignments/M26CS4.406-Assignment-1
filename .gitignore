@@ -6,3 +6,5 @@ zip/
 __pycache__/
 processed_data/
 split_data/
+bm25_indexes/
+faiss_indexes/
