@@ -4,6 +4,33 @@ import pandas as pd
 import numpy as np
 import faiss
 from tqdm import tqdm
+import os
+import pickle
+
+#This saving part was also slighly AI-generated
+def save_faiss_index(index, article_ids, article_embeddings, id_to_idx, filepath):
+    dirname = os.path.dirname(filepath)
+    if dirname:
+        os.makedirs(dirname, exist_ok=True)
+    
+    serialized_index = faiss.serialize_index(index)
+    
+    with open(filepath, "wb") as f:
+        pickle.dump({
+            "index_bytes": serialized_index,
+            "article_ids": article_ids,
+            "article_embeddings": article_embeddings,
+            "id_to_idx": id_to_idx
+        }, f)
+    print(f"FAISS index saved to {filepath}")
+
+def load_faiss_index(filepath):
+    with open(filepath, "rb") as f:
+        data = pickle.load(f)
+    
+    index = faiss.deserialize_index(data["index_bytes"])
+    print(f"FAISS index successfully loaded from {filepath}")
+    return index, data["article_ids"], data["article_embeddings"], data["id_to_idx"]
 
 def build_faiss_index(embeddings_df):
     article_ids = embeddings_df['article_id'].astype(str).str.strip().tolist()
@@ -48,8 +75,13 @@ def build_user_query_embedding(user_history, article_embeddings, id_to_idx, max_
     faiss.normalize_L2(user_vector)
     return user_vector
 
-def evaluate_faiss(behaviours_df, embeddings_df, k_list=[50, 100, 200], max_history_length=5):
-    index, article_ids, article_embeddings, id_to_idx = build_faiss_index(embeddings_df)
+def evaluate_faiss(behaviours_df, embeddings_df, index_path=None, k_list=[50, 100, 200], max_history_length=5):
+    if index_path and os.path.exists(index_path):
+        index, article_ids, article_embeddings, id_to_idx = load_faiss_index(index_path)
+    else:
+        index, article_ids, article_embeddings, id_to_idx = build_faiss_index(embeddings_df)
+        if index_path:
+            save_faiss_index(index, article_ids, article_embeddings, id_to_idx, index_path)
 
     global_centroid = np.mean(article_embeddings, axis=0, keepdims=True).astype(np.float32)
     faiss.normalize_L2(global_centroid)
@@ -95,12 +127,12 @@ def evaluate_faiss(behaviours_df, embeddings_df, k_list=[50, 100, 200], max_hist
     avg_recalls = {k: float(np.mean(recalls[k])) if recalls[k] else 0.0 for k in k_list}
     return avg_recalls
 
-def run_q3_dataset(dataset_name, behaviors_path, articles_path, k_list=[50, 100, 200]):
+def run_q3_dataset(dataset_name, behaviors_path, articles_path, index_path, k_list=[50, 100, 200]):
     print(f"Evaluating FAISS Semantic Retrieval for {dataset_name}...")
     behaviours_df = pd.read_parquet(behaviors_path)
     articles_df = pd.read_parquet(articles_path)
 
-    avg_recalls = evaluate_faiss(behaviours_df, articles_df, k_list=k_list)
+    avg_recalls = evaluate_faiss(behaviours_df, articles_df, index_path=index_path, k_list=k_list)
     
     print(f"Dataset: {dataset_name}")
     for k, recall in avg_recalls.items():
@@ -116,12 +148,14 @@ def run_q3():
     run_q3_dataset(
         dataset_name="MIND-Small Validation",
         behaviors_path="split_data/mind_val.parquet",
-        articles_path="processed_data/mind_news.parquet"
+        articles_path="processed_data/mind_news.parquet",
+        index_path="faiss_indexes/mind_faiss.pkl"
     )
     run_q3_dataset(
         dataset_name="EB-NeRD Validation",
         behaviors_path="split_data/ebnerd_val.parquet",
-        articles_path="processed_data/ebnerd_articles.parquet"
+        articles_path="processed_data/ebnerd_articles.parquet",
+        index_path="faiss_indexes/ebnerd_faiss.pkl"
     )
 
 if __name__ == "__main__":

@@ -41,20 +41,9 @@ download "https://ebnerd-dataset.s3.eu-west-1.amazonaws.com/artifacts/Ekstra_Bla
 download "https://ebnerd-dataset.s3.eu-west-1.amazonaws.com/artifacts/google_bert_base_multilingual_cased.zip" "./zip/google_bert_base_multilingual_cased.zip"
 
 echo "Downloading MIND datasets"
-#Would do this but getting some 401 error so had to modify it to use HF Token instead.
-#I set it as an environment variable because safety
+#Would do wget but getting some 401 error so had to modify it to this
 # wget https://huggingface.co/datasets/yjw1029/MIND/resolve/main/MINDsmall_train.zip
 # wget https://huggingface.co/datasets/yjw1029/MIND/resolve/main/MINDsmall_dev.zip
-
-# if [ -z "$HF_TOKEN" ]; then
-#     echo "Need to export HF_TOKEN="HF_..." first"
-#     exit 1
-# fi
-
-# auth_header="Authorization: Bearer $HF_TOKEN"
-
-# download "https://huggingface.co/datasets/yjw1029/MIND/resolve/main/MINDsmall_train.zip" "./zip/MINDsmall_train.zip"
-# download "https://huggingface.co/datasets/yjw1029/MIND/resolve/main/MINDsmall_dev.zip" "./zip/MINDsmall_dev.zip"
 
 download "https://mind201910small.blob.core.windows.net/release/MINDsmall_train.zip" "./zip/MINDsmall_train.zip"
 download "https://mind201910small.blob.core.windows.net/release/MINDsmall_dev.zip" "./zip/MINDsmall_dev.zip"
