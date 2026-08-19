@@ -38,11 +38,11 @@ def diversity_at_k(ranked_ids, article_embeddings, id_to_idx, k):
     upper = np.triu_indices(len(recs), k=1)
     return float(1 - sim[upper].mean())
 
-def novelty_at_k(ranked_ids, popularity, k):
+def novelty_at_k(ranked_ids, popularity, k, min_pop=1e-4):
     recs = ranked_ids[:k]
     if not recs:
         return None
-    return float(np.mean([-np.log2(popularity.get(aid, 1e-6)) for aid in recs]))
+    return float(np.mean([-np.log2(popularity.get(aid, min_pop)) for aid in recs]))
 
 def coverage_at_k(rec_sets, catalog_size):
     if not catalog_size:
@@ -90,7 +90,12 @@ def evaluate(behaviours_df, method, index_bundle, popularity):
         if len(set(labels)) < 2: 
             continue
 
-        history = row["history"] if isinstance(row["history"], list) else []
+        if isinstance(row["history"], (list, np.ndarray)):
+            history = [str(x) for x in row["history"]]
+        elif isinstance(row["history"], str):
+            history = row["history"].strip().split()
+        else:
+            history = []
         slice_name = "cold" if len(history) <= COLD_START_THRESHOLD else "warm"
 
         if method == "bm25":

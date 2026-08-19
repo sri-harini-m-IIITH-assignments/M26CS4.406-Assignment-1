@@ -23,7 +23,9 @@ def get_stop_words(language):
         return set()
 
 def tokenize(text, stop_words=None):
-    tokens = re.findall(r'\w+', text.lower()) if text else []
+    if not isinstance(text, str):
+        return []
+    tokens = re.findall(r'\w+', text.lower())
     if stop_words is not None:
         tokens = [t for t in tokens if t not in stop_words]
     return tokens

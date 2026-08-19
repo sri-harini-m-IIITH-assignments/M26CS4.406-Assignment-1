@@ -27,6 +27,17 @@ def extract_entities(text):
     except (json.JSONDecodeError, KeyError, TypeError):
         return []
 
+def assert_no_future_leakage(train_df, val_df, test_df):
+    max_train_time = train_df["timestamp"].max()
+    min_val_time = val_df["timestamp"].min()
+    min_test_time = test_df["timestamp"].min()
+    max_val_time = val_df["timestamp"].max()
+    
+    assert max_train_time <= min_val_time, f"Leakage! Train ends {max_train_time} but Val starts {min_val_time}"
+    assert max_val_time <= min_test_time, f"Leakage! Val ends {max_val_time} but Test starts {min_test_time}"
+    
+    print("Assertion passed: No future-click leakage detected.")
+
 def clean_mind_news():
     #Function to clean the mind dataset (news.tsv)
     news_cols = ["article_id", "category", "subcategory", "title", "abstract", "url", "title_entities", "abstract_entities"]
@@ -146,17 +157,14 @@ def split_by_timestamp(df, test_days, val_days):
 
 def generate_embeddings(df, model="all-MiniLM-L6-v2"):
     df = df.copy()
-    print(f"Generating embeddings using model: {model}")
-    sentence_model = SentenceTransformer(model)
-    df["title_embedding"] = sentence_model.encode(df["title"].fillna("").tolist(), show_progress_bar=True).tolist()
-    df["abstract_embedding"] = sentence_model.encode(df["abstract"].fillna("").tolist(), show_progress_bar=True).tolist()
+    print(f"Generating joint embeddings using model: {model}")
+    sentence_model = SentenceTransformer(model)    
+    joint_text = df["title"].fillna("") + " " + df["abstract"].fillna("")
+    df["joint_embedding"] = sentence_model.encode(
+        joint_text.tolist(), 
+        show_progress_bar=True
+    ).tolist()
     
-    if df["body"].str.strip().astype(bool).any():
-        df["body_embedding"] = sentence_model.encode(df["body"].fillna("").tolist(), show_progress_bar=True).tolist()
-    else:
-        dim = sentence_model.get_sentence_embedding_dimension()
-        df["body_embedding"] = [np.zeros(dim).tolist() for _ in range(len(df))]
-
     return df
 
 def build_user_features(behaviours_df):
@@ -190,6 +198,7 @@ def run_q1():
 
     #Train/Validation/Test split for mind dataset
     mind_train, mind_val, mind_test = split_by_timestamp(mind_behaviors, test_days=1, val_days=1)
+    assert_no_future_leakage(mind_train, mind_val, mind_test)
     mind_train_users = build_user_features(mind_train)
     mind_val_users = build_user_features(mind_val)
     mind_test_users = build_user_features(mind_test)
@@ -214,6 +223,7 @@ def run_q1():
 
     #Train/Validation/Test split for ebnerd dataset
     ebnerd_train, ebnerd_val, ebnerd_test = split_by_timestamp(ebnerd_behaviors, test_days=1, val_days=1)
+    assert_no_future_leakage(ebnerd_train, ebnerd_val, ebnerd_test)
     ebnerd_train_users = build_user_features(ebnerd_train)
     ebnerd_val_users = build_user_features(ebnerd_val)
     ebnerd_test_users = build_user_features(ebnerd_test)

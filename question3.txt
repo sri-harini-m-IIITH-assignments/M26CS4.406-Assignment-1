@@ -8,13 +8,3 @@ Average Recall@50: 0.0078
 Average Recall@100: 0.0139
 Average Recall@200: 0.0262
 
-Dataset: MIND-Small Validation
-Average Recall@50: 0.0135
-Average Recall@100: 0.0211
-Average Recall@200: 0.0330
-
-Dataset: EB-NeRD Validation
-Average Recall@50: 0.0078
-Average Recall@100: 0.0139
-Average Recall@200: 0.0262
-

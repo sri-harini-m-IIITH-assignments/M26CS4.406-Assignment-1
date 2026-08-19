@@ -34,10 +34,7 @@ def load_faiss_index(filepath):
 
 def build_faiss_index(embeddings_df):
     article_ids = embeddings_df['article_id'].astype(str).str.strip().tolist()
-    title_embeddings = np.array(embeddings_df['title_embedding'].tolist(), dtype=np.float32)
-    abstract_embeddings = np.array(embeddings_df['abstract_embedding'].tolist(), dtype=np.float32)
-    
-    article_embeddings = (title_embeddings + abstract_embeddings) / 2.0
+    article_embeddings = np.array(embeddings_df['joint_embedding'].tolist(), dtype=np.float32)
     
     faiss.normalize_L2(article_embeddings)
     
