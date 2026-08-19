@@ -94,6 +94,9 @@ def evaluate_faiss(behaviours_df, embeddings_df, index_path=None, k_list=[50, 10
         raw_candidates = row['candidates']
         raw_labels = row['labels']
 
+        if raw_candidates is None or raw_labels is None:
+            continue
+
         if isinstance(raw_candidates, str):
             candidates = raw_candidates.strip().split()
         else:

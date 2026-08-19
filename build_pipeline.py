@@ -5,21 +5,32 @@ import sys
 from python_scripts.question1 import run_q1
 from python_scripts.question2 import run_q2
 from python_scripts.question3 import run_q3
+from python_scripts.question4 import run_q4
+
+QUESTION_RUNNERS = {
+    1: run_q1,
+    2: run_q2,
+    3: run_q3,
+    4: run_q4,
+}
 
 def main():
     parser = argparse.ArgumentParser(description="Run the pipeline for the assignment.")
-    parser.add_argument("--question", type=int, choices=[1, 2, 3], required=True, help="Specify which question to run (1 or 2).")
+    parser.add_argument(
+        "--question",
+        type=int,
+        choices=[1, 2, 3, 4],
+        default=None,
+        help="Specify which question to run (1, 2, 3, or 4). If not given, all four run in order.",
+    )
     args = parser.parse_args()
 
-    if args.question == 1:
-        run_q1()
-    elif args.question == 2:
-        run_q2()
-    elif args.question == 3:
-        run_q3()
+    if args.question is None:
+        for q in sorted(QUESTION_RUNNERS):
+            print(f"\nRunning Question {q}\n")
+            QUESTION_RUNNERS[q]()
     else:
-        print("Invalid question number. Please specify either 1, 2, or 3.")
-        sys.exit(1)
+        QUESTION_RUNNERS[args.question]()
 
 if __name__ == "__main__":
     main()

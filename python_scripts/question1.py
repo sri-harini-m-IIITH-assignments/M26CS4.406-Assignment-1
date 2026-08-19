@@ -160,13 +160,16 @@ def generate_embeddings(df, model="all-MiniLM-L6-v2"):
     return df
 
 def build_user_features(behaviours_df):
-    users_df = behaviours_df[["user_id", "history"]].drop_duplicates(subset="user_id").copy()
+    behaviours_sorted = behaviours_df.sort_values("timestamp")
+    latest_rows = behaviours_sorted.drop_duplicates(subset="user_id", keep="last")
+    users_df = latest_rows[["user_id", "history"]].copy()
     users_df["user_id"] = users_df["user_id"].astype(str)
-    users_df["history"] = users_df["history"].apply(lambda x: len(x) if isinstance(x, list) else 0)
+    users_df["history"] = users_df["history"].apply(lambda x: x if isinstance(x, list) else [])
+    users_df["history_length"] = users_df["history"].apply(len)
     recency = behaviours_df.groupby("user_id")["timestamp"].max().reset_index().rename(columns={"timestamp": "recency"})
     users_df = users_df.merge(recency, on="user_id", how="left")
-    users_df = users_df.sort_values(by="recency", ascending=False).drop_duplicates(subset="user_id", keep="first").reset_index(drop=True)
-    return users_df
+
+    return users_df.reset_index(drop=True)
 
 def run_q1():
     os.makedirs("processed_data", exist_ok=True)
