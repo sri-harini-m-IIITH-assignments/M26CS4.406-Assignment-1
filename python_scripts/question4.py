@@ -81,7 +81,7 @@ def evaluate(behaviours_df, method, index_bundle, popularity):
     rows = {"all": [], "cold": [], "warm": []}
     rec_sets = {"all": set(), "cold": set(), "warm": set()}
 
-    for _, row in tqdm(behaviours_df.iterrows(), total=len(behaviours_df), desc=f"Q4 [{method}]"):
+    for _, row in tqdm(behaviours_df.iterrows(), total=len(behaviours_df), desc=f"Offline Evaluation [{method}]"):
         candidates, labels = row["candidates"], row["labels"]
         if candidates is None or labels is None or len(candidates) == 0:
             continue
@@ -152,7 +152,7 @@ def write_results(f, dataset_name, method, summary):
     f.write("\n")
 
 def run_q4_dataset(dataset_name, train_path, val_path, bm25_index_path, faiss_index_path, language="english"):
-    print(f"Running Q4 for {dataset_name}...")
+    print(f"Running Offline Evaluation for {dataset_name}...")
 
     train_df = pd.read_parquet(train_path)
     val_df = pd.read_parquet(val_path)
@@ -177,7 +177,7 @@ def run_q4_dataset(dataset_name, train_path, val_path, bm25_index_path, faiss_in
             summary = summarize(rows, rec_sets, catalog_size)
             write_results(f, dataset_name, method, summary)
 
-    print(f"Q4 results for {dataset_name} written to question4.txt")
+    print(f"Results for {dataset_name} written to question4.txt")
 
 def run_q4():
     run_q4_dataset(
