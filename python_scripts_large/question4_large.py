@@ -212,14 +212,14 @@ def run_q4_dataset(dataset_name, train_path, val_path, bm25_index_path, faiss_in
     print(f"Results for {dataset_name} written to question4_large.txt")
 
 def run_q4():
-    run_q4_dataset(
-        dataset_name="MIND-Large Validation",
-        train_path="split_data_large/mind_train.parquet",
-        val_path="split_data_large/mind_dev.parquet",
-        bm25_index_path="bm25_indexes_large/mind_bm25.pkl",
-        faiss_index_path="faiss_indexes_large/mind_faiss.pkl",
-        language="english",
-    )
+    # run_q4_dataset(
+    #     dataset_name="MIND-Large Validation",
+    #     train_path="split_data_large/mind_train.parquet",
+    #     val_path="split_data_large/mind_dev.parquet",
+    #     bm25_index_path="bm25_indexes_large/mind_bm25.pkl",
+    #     faiss_index_path="faiss_indexes_large/mind_faiss.pkl",
+    #     language="english",
+    # )
     run_q4_dataset(
         dataset_name="EB-NeRD Large Validation",
         train_path="split_data_large/ebnerd_train.parquet",

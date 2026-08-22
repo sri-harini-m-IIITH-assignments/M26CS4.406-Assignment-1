@@ -1,9 +1,9 @@
 pandas
 numpy
+pyarrow
 sentence-transformers
 rank-bm25
-nltk
 faiss-cpu
 scikit-learn
 tqdm
-pyarrow
+nltk

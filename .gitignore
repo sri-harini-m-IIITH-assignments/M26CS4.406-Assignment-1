@@ -9,3 +9,6 @@ split_data/
 bm25_indexes/
 faiss_indexes/
 *.pkl
+processed_data_large/
+data_large/
+split_data_large/
