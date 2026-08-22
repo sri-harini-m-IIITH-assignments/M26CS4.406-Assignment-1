@@ -27,7 +27,7 @@ def load_raw_mind_test_behaviors(path):
         .replace("nan", "")
         .str.split()
     )
-    return df[["impression_id", "history", "candidates"]]
+    return df[["impression_id", "history", "candidates"]], None
 
 def load_ebnerd_test_behaviors(test_dir):
     behaviors_path = os.path.join(test_dir, "behaviors.parquet")
@@ -39,18 +39,16 @@ def load_ebnerd_test_behaviors(test_dir):
     df_beh["user_id"] = df_beh["user_id"].astype(str)
     df_hist["user_id"] = df_hist["user_id"].astype(str)
     
-    df = df_beh.merge(df_hist[["user_id", "article_id_fixed"]], on="user_id", how="left")
+    # Create history dictionary instead of merging
+    history_dict = dict(zip(df_hist['user_id'], df_hist['article_id_fixed']))
 
-    df["impression_id"] = df["impression_id"].astype(str)
+    df_beh["impression_id"] = df_beh["impression_id"].astype(str)
     
-    df["history"] = df["article_id_fixed"].apply(
-        lambda x: [str(i) for i in x] if isinstance(x, np.ndarray) else []
-    )
-    df["candidates"] = df["article_ids_inview"].apply(
+    df_beh["candidates"] = df_beh["article_ids_inview"].apply(
         lambda x: [str(i) for i in x] if isinstance(x, np.ndarray) else []
     )
 
-    return df[["impression_id", "history", "candidates"]]
+    return df_beh[["impression_id", "user_id", "candidates"]], history_dict
 
 def scores_to_ranks(scores):
     order = np.argsort(-np.asarray(scores), kind="stable")
@@ -111,9 +109,9 @@ def generate_prediction_file(
     output_path = os.path.join(output_dir, txt_name)
 
     if dataset_type.lower() == "mind":
-        test_df = load_raw_mind_test_behaviors(test_path_or_dir)
+        test_df, history_dict = load_raw_mind_test_behaviors(test_path_or_dir)
     elif dataset_type.lower() == "ebnerd":
-        test_df = load_ebnerd_test_behaviors(test_path_or_dir)
+        test_df, history_dict = load_ebnerd_test_behaviors(test_path_or_dir)
     else:
         raise ValueError("dataset_type must be 'mind' or 'ebnerd'")
 
@@ -133,10 +131,23 @@ def generate_prediction_file(
             lines.append(f"{row.impression_id} []")
             continue
 
-        if method == "bm25":
-            scores = score_impression_bm25_fast(bm25, article_dict, id_to_idx, stop_words, row.history, row.candidates)
+        # Resolve history exactly as in Q4
+        if hasattr(row, 'history'):
+            raw_history = row.history
         else:
-            scores = score_impression_faiss(article_embeddings, id_to_idx, row.history, row.candidates)
+            raw_history = history_dict.get(row.user_id, [])
+
+        if isinstance(raw_history, (list, np.ndarray)):
+            history = [str(x) for x in raw_history]
+        elif isinstance(raw_history, str):
+            history = raw_history.strip().split()
+        else:
+            history = []
+
+        if method == "bm25":
+            scores = score_impression_bm25_fast(bm25, article_dict, id_to_idx, stop_words, history, row.candidates)
+        else:
+            scores = score_impression_faiss(article_embeddings, id_to_idx, history, row.candidates)
 
         ranks = scores_to_ranks(scores)
         rank_str = ",".join(str(r) for r in ranks)

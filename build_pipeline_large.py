@@ -7,11 +7,11 @@ from python_scripts_large.question4_large import run_q4
 
 def main():
     #run_q1_mind()
-    run_q1_ebnerd()
+    # run_q1_ebnerd()
 
-    run_q2()
-    run_q3()
-    run_q4()
+    # run_q2()
+    # run_q3()
+    # run_q4()
 
     configs = [
         # {
@@ -34,7 +34,7 @@ def main():
         # },
         {
             "dataset_type": "ebnerd",
-            "test_path_or_dir": "data_large/ebnerd_large/test",  
+            "test_path_or_dir": "data_large/ebnerd_testset/test",  
             "method": "bm25",
             "bm25_index_path": "bm25_indexes_large/ebnerd_large_bm25.pkl",
             "faiss_index_path": "faiss_indexes_large/ebnerd_large_faiss.pkl",
@@ -43,7 +43,7 @@ def main():
         },
         {
             "dataset_type": "ebnerd",
-            "test_path_or_dir": "data_large/ebnerd_large/test", 
+            "test_path_or_dir": "data_large/ebnerd_testset/test", 
             "method": "faiss",
             "bm25_index_path": "bm25_indexes_large/ebnerd_large_bm25.pkl",
             "faiss_index_path": "faiss_indexes_large/ebnerd_large_faiss.pkl",

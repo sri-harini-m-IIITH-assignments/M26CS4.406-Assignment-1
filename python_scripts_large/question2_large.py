@@ -91,7 +91,7 @@ def retrieve_top_k(bm25, article_ids, user_query, k=200):
         
     return [article_ids[i] for i in top_k_indices]
 
-def evaluate_bm25(behaviours_df, articles_df, index_path=None, language="english", k_list=[50, 100, 200], max_history_length=5):
+def evaluate_bm25(behaviours_df, articles_df, index_path=None, language="english", k_list=[50, 100, 200], max_history_length=5, history_path=None):
     stop_words = get_stop_words(language)
     if index_path and os.path.exists(index_path):
         bm25, article_ids, article_dict = load_bm25_index(index_path)
@@ -105,12 +105,19 @@ def evaluate_bm25(behaviours_df, articles_df, index_path=None, language="english
 
     query_cache = {}
 
+    history_dict = {}
+    if history_path and os.path.exists(history_path):
+        history_df = pd.read_parquet(history_path)
+        history_dict = dict(zip(history_df['user_id'], history_df['history']))
+
     # Swapped iterrows for itertuples to massively speed up the loop
     for row in tqdm(behaviours_df.itertuples(index=False), total=len(behaviours_df), desc="Evaluating BM25"):
-        
+        if hasattr(row, 'history'):
+            user_history = row.history
+        else:
+            user_history = history_dict.get(row.user_id, [])
         raw_candidates = row.candidates
         raw_labels = row.labels
-        user_history = row.history
 
         if raw_candidates is None or raw_labels is None:
             continue
@@ -150,13 +157,13 @@ def evaluate_bm25(behaviours_df, articles_df, index_path=None, language="english
     avg_recalls = {k: float(np.mean(recalls[k])) if recalls[k] else 0.0 for k in k_list}
     return avg_recalls
 
-def run_q2_dataset(dataset_name, behaviors_path, articles_path, index_path, language="english", k_list=[50, 100, 200]):
+def run_q2_dataset(dataset_name, behaviors_path, articles_path, index_path, language="english", k_list=[50, 100, 200], history_path=None):
     print(f"Evaluating BM25 for {dataset_name} dataset...")
     behaviours_df = pd.read_parquet(behaviors_path)
     articles_df = pd.read_parquet(articles_path)
 
-    avg_recalls = evaluate_bm25(behaviours_df, articles_df, index_path=index_path, language=language, k_list=k_list)
-    
+    avg_recalls = evaluate_bm25(behaviours_df, articles_df, index_path=index_path, language=language, k_list=k_list, history_path=history_path)    
+
     print(f"Dataset: {dataset_name}")
     for k, recall in avg_recalls.items():
         print(f"Average Recall@{k}: {recall:.4f}")
@@ -180,7 +187,8 @@ def run_q2():
         behaviors_path="split_data_large/ebnerd_val.parquet",
         articles_path="processed_data_large/ebnerd_articles_large.parquet",
         index_path="bm25_indexes_large/ebnerd_large_bm25.pkl",
-        language="danish"
+        language="danish",
+        history_path="split_data_large/ebnerd_val_history.parquet" 
     )
     
 if __name__ == "__main__":

@@ -7,9 +7,11 @@ import sys
 import pandas as pd
 import numpy as np
 from sentence_transformers import SentenceTransformer
+from tqdm import tqdm
+
+tqdm.pandas()
 
 def download_data(script_path="bash_scripts/download_data.sh"):
-    #Function to download data from Part 0
     print("Downloading data...")
     try:
         subprocess.run(["bash", script_path], check=True)
@@ -27,19 +29,7 @@ def extract_entities(text):
     except (json.JSONDecodeError, KeyError, TypeError):
         return []
 
-def assert_no_future_leakage(train_df, val_df, test_df):
-    max_train_time = train_df["timestamp"].max()
-    min_val_time = val_df["timestamp"].min()
-    min_test_time = test_df["timestamp"].min()
-    max_val_time = val_df["timestamp"].max()
-    
-    assert max_train_time <= min_val_time, f"Leakage! Train ends {max_train_time} but Val starts {min_val_time}"
-    assert max_val_time <= min_test_time, f"Leakage! Val ends {max_val_time} but Test starts {min_test_time}"
-    
-    print("Assertion passed: No future-click leakage detected.")
-
 def clean_mind_news(split):
-    #Function to clean the mind dataset (news.tsv)
     news_cols = ["article_id", "category", "subcategory", "title", "abstract", "url", "title_entities", "abstract_entities"]
     usecols = ["article_id", "category", "subcategory", "title", "abstract", "title_entities", "abstract_entities"]
     news_df = pd.read_csv(f"data_large/MINDlarge_{split}/news.tsv", sep="\t", header=None, names=news_cols, usecols=usecols)
@@ -50,14 +40,18 @@ def clean_mind_news(split):
     news_df["subcategory"] = news_df["subcategory"].astype(str)
     news_df["title"] = news_df["title"].fillna("").astype(str)
     news_df["abstract"] = news_df["abstract"].fillna("").astype(str)
-    title_ents = news_df["title_entities"].apply(extract_entities)
-    abstract_ents = news_df["abstract_entities"].apply(extract_entities)
-    news_df["entities"] = (title_ents + abstract_ents).apply(lambda lst: list(dict.fromkeys(lst)))
+    
+    print(f"Extracting title entities for MIND {split}...")
+    title_ents = news_df["title_entities"].progress_apply(extract_entities)
+    print(f"Extracting abstract entities for MIND {split}...")
+    abstract_ents = news_df["abstract_entities"].progress_apply(extract_entities)
+    
+    print(f"Merging entities for MIND {split}...")
+    news_df["entities"] = (title_ents + abstract_ents).progress_apply(lambda lst: list(dict.fromkeys(lst)))
  
     return news_df[["article_id", "title", "abstract", "category", "subcategory", "entities"]]
 
 def clean_mind_behaviors_train_val(split):
-    #Function to clean the mind dataset (behaviors.tsv)
     behaviors_cols = ["impression_id", "user_id", "timestamp", "history", "impressions"]
     df = pd.read_csv(f"data_large/MINDlarge_{split}/behaviors.tsv", sep="\t", header=None, names=behaviors_cols)
     df = df.drop_duplicates(subset="impression_id")
@@ -67,10 +61,14 @@ def clean_mind_behaviors_train_val(split):
     df["user_id"] = df["user_id"].astype(str)
     df["history"] = df["history"].fillna("").astype(str).replace("nan", "").str.split()
     df["impressions"] = df["impressions"].fillna("").astype(str).replace("nan", "").str.split()
-    df["candidates"] = df["impressions"].apply(
+    
+    print(f"Parsing candidates for MIND {split} behaviors...")
+    df["candidates"] = df["impressions"].progress_apply(
         lambda x: [item.split("-")[0] for item in x if "-" in item]
     )
-    df["labels"] = df["impressions"].apply(
+    
+    print(f"Parsing labels for MIND {split} behaviors...")
+    df["labels"] = df["impressions"].progress_apply(
         lambda x: [int(item.split("-")[1]) for item in x if "-" in item]
     )
  
@@ -91,6 +89,7 @@ def clean_mind_behaviors_test():
     return df[["impression_id", "user_id", "history", "timestamp", "candidates", "labels"]]
 
 def clean_ebnerd_articles_large():
+    print("Loading EB-NeRD articles...")
     ebnerd_articles = pd.read_parquet("data_large/ebnerd_large/articles.parquet")
     ebnerd_articles_clean = ebnerd_articles.drop_duplicates(subset="article_id")
 
@@ -100,66 +99,58 @@ def clean_ebnerd_articles_large():
     ebnerd_articles_clean["title"] = ebnerd_articles_clean["title"].fillna("").astype(str)
     ebnerd_articles_clean["abstract"] = ebnerd_articles_clean["subtitle"].fillna("").astype(str).str.replace(r'\r+|\n+', ' ', regex=True)
     ebnerd_articles_clean["body"] = ebnerd_articles_clean["body"].fillna("").astype(str).str.replace(r'\r+|\n+', ' ', regex=True)
-    ebnerd_articles_clean["entities"] = ebnerd_articles_clean["ner_clusters"].apply(
+    
+    print("Extracting entities for EB-NeRD articles...")
+    ebnerd_articles_clean["entities"] = ebnerd_articles_clean["ner_clusters"].progress_apply(
         lambda x: [str(item) for item in x] if isinstance(x, (list, np.ndarray)) else []
     )
 
     return ebnerd_articles_clean[["article_id", "title", "abstract", "body", "category", "subcategory", "entities"]]
 
-def clean_ebnerd_behaviors_large():
-    ebnerd_behaviours_train = pd.read_parquet("data_large/ebnerd_large/train/behaviors.parquet")
-    ebnerd_behaviours_val = pd.read_parquet("data_large/ebnerd_large/validation/behaviors.parquet")
-
-    ebnerd_history_train = pd.read_parquet("data_large/ebnerd_large/train/history.parquet")
-    ebnerd_history_val = pd.read_parquet("data_large/ebnerd_large/validation/history.parquet")
-
-    behaviours_combined = pd.concat([ebnerd_behaviours_train, ebnerd_behaviours_val], ignore_index=True)
-    behaviours_combined = behaviours_combined.drop_duplicates(subset="impression_id")    
-
-    history_combined = pd.concat([ebnerd_history_train, ebnerd_history_val], ignore_index=True)
-    history_combined = history_combined.drop_duplicates(subset="user_id")   
-
-    behaviours_combined["impression_id"] = behaviours_combined["impression_id"].astype(str)
-    behaviours_combined["user_id"] = behaviours_combined["user_id"].astype(str)
-    behaviours_combined["timestamp"] = pd.to_datetime(behaviours_combined["impression_time"])
-
-    history_combined["user_id"] = history_combined["user_id"].astype(str)
-    history_combined["history"] = history_combined["article_id_fixed"].apply(
+def clean_ebnerd_history(split):
+    history_path = f"data_large/ebnerd_large/{split}/history.parquet"
+    if not os.path.exists(history_path):
+        return None
+        
+    df_hist = pd.read_parquet(history_path).drop_duplicates(subset="user_id")
+    df_hist["user_id"] = df_hist["user_id"].astype(str)
+    
+    print(f"Cleaning history for EB-NeRD {split}...")
+    df_hist["history"] = df_hist["article_id_fixed"].progress_apply(
         lambda arr: [str(x) for x in arr] if arr is not None else []
     )
-    behaviours_combined = behaviours_combined.merge(history_combined[["user_id", "history"]], on="user_id", how="left")
-    behaviours_combined["history"] = behaviours_combined["history"].apply(
-        lambda x: x if isinstance(x, list) else []
-    )
-    behaviours_combined["candidates"] = behaviours_combined["article_ids_inview"].apply(
+    return df_hist[["user_id", "history"]]
+
+def clean_ebnerd_behaviors(split):
+    behaviors_path = f"data_large/ebnerd_large/{split}/behaviors.parquet"
+    df = pd.read_parquet(behaviors_path).drop_duplicates(subset="impression_id")
+
+    df["impression_id"] = df["impression_id"].astype(str)
+    df["user_id"] = df["user_id"].astype(str)
+    df["timestamp"] = pd.to_datetime(df["impression_time"])
+    
+    print(f"Extracting candidates for EB-NeRD {split} behaviors...")
+    df["candidates"] = df["article_ids_inview"].progress_apply(
         lambda arr: [str(x) for x in arr] if arr is not None else []
     )
-    behaviours_combined["labels"] = behaviours_combined.apply(
+    
+    if "article_ids_clicked" in df.columns:
+        print(f"Extracting labels for EB-NeRD {split} behaviors (this might take a moment)...")
+        df["labels"] = df.progress_apply(
             lambda row: [
                 1 if x in (row["article_ids_clicked"] if row["article_ids_clicked"] is not None else []) else 0 
                 for x in (row["article_ids_inview"] if row["article_ids_inview"] is not None else [])
             ],
             axis=1
-    )
+        )
+    else:
+        df["labels"] = None
 
-    return behaviours_combined[["impression_id", "user_id", "history", "timestamp", "candidates", "labels"]]
-
-def split_by_timestamp(df, test_days, val_days):
-    max_date = df["timestamp"].max()
-    test_threshold = max_date - pd.Timedelta(days=test_days)
-    val_threshold = test_threshold - pd.Timedelta(days=val_days)
-
-    test_df = df[df["timestamp"] > test_threshold].copy()
-    val_df = df[(df["timestamp"] > val_threshold) & (df["timestamp"] <= test_threshold)].copy()
-    train_df = df[df["timestamp"] <= val_threshold].copy()
-
-    print(f"Train set: {len(train_df)} rows, Validation set: {len(val_df)} rows, Test set: {len(test_df)} rows")
-
-    return train_df, val_df, test_df
+    return df[["impression_id", "user_id", "timestamp", "candidates", "labels"]]
 
 def generate_embeddings(df, model="all-MiniLM-L6-v2"):
     df = df.copy()
-    print(f"Generating joint embeddings using model: {model}")
+    print(f"Generating joint embeddings using model: {model} (Native TQDM applies here)")
     sentence_model = SentenceTransformer(model)    
     joint_text = df["title"].fillna("") + " " + df["abstract"].fillna("")
     df["joint_embedding"] = sentence_model.encode(
@@ -169,12 +160,18 @@ def generate_embeddings(df, model="all-MiniLM-L6-v2"):
     
     return df
 
-def build_user_features(behaviours_df):
+def build_user_features(behaviours_df, history_df=None):
     behaviours_sorted = behaviours_df.sort_values("timestamp")
     latest_rows = behaviours_sorted.drop_duplicates(subset="user_id", keep="last")
-    users_df = latest_rows[["user_id", "history"]].copy()
+    users_df = latest_rows[["user_id"]].copy()
     users_df["user_id"] = users_df["user_id"].astype(str)
-    users_df["history"] = users_df["history"].apply(lambda x: x if isinstance(x, list) else [])
+    
+    if history_df is not None:
+        users_df = users_df.merge(history_df, on="user_id", how="left")
+        users_df["history"] = users_df["history"].apply(lambda x: x if isinstance(x, list) else [])
+    else:
+        users_df["history"] = [[] for _ in range(len(users_df))]
+
     users_df["history_length"] = users_df["history"].apply(len)
     recency = behaviours_df.groupby("user_id")["timestamp"].max().reset_index().rename(columns={"timestamp": "recency"})
     users_df = users_df.merge(recency, on="user_id", how="left")
@@ -184,8 +181,6 @@ def build_user_features(behaviours_df):
 def run_q1_mind():
     os.makedirs("processed_data_large", exist_ok=True)
     os.makedirs("split_data_large", exist_ok=True)
- 
-    #download_data()
  
     mind_news_train = clean_mind_news("train")
     mind_news_dev = clean_mind_news("dev")
@@ -213,7 +208,7 @@ def run_q1_mind():
     mind_train_users.to_parquet("split_data_large/mind_train_users.parquet", index=False)
     mind_dev_users.to_parquet("split_data_large/mind_dev_users.parquet", index=False)
     mind_test_users.to_parquet("split_data_large/mind_test_users.parquet", index=False)
-    print("Mind train/dev/test saved.")
+    print("MIND train/dev/test saved.")
 
 def run_q1_ebnerd():
     os.makedirs("processed_data_large", exist_ok=True)
@@ -224,21 +219,21 @@ def run_q1_ebnerd():
     ebnerd_articles.to_parquet("processed_data_large/ebnerd_articles_large.parquet", index=False)
     print("Cleaned articles data saved to processed_data_large/ebnerd_articles_large.parquet")
 
-    ebnerd_behaviours = clean_ebnerd_behaviors_large()
-    ebnerd_behaviours.to_parquet("processed_data_large/ebnerd_behaviors_large.parquet", index=False)
-    ebnerd_train, ebnerd_val, ebnerd_test = split_by_timestamp(ebnerd_behaviours, test_days=7, val_days=7)
+    for split in ["train", "validation"]:
+        beh_df = clean_ebnerd_behaviors(split)
+        hist_df = clean_ebnerd_history(split)
 
-    train_users = build_user_features(ebnerd_train)
-    val_users = build_user_features(ebnerd_val)
-    test_users = build_user_features(ebnerd_test)
+        out_split_name = "val" if split == "validation" else split
 
-    ebnerd_train.to_parquet("split_data_large/ebnerd_train.parquet", index=False)
-    ebnerd_val.to_parquet("split_data_large/ebnerd_val.parquet", index=False)
-    ebnerd_test.to_parquet("split_data_large/ebnerd_test.parquet", index=False)
-    train_users.to_parquet("split_data_large/ebnerd_train_users.parquet", index=False)
-    val_users.to_parquet("split_data_large/ebnerd_val_users.parquet", index=False)
-    test_users.to_parquet("split_data_large/ebnerd_test_users.parquet", index=False)
-    print("EbNERD train/dev/test saved.")
+        beh_df.to_parquet(f"split_data_large/ebnerd_{out_split_name}.parquet", index=False)
+        
+        if hist_df is not None:
+            hist_df.to_parquet(f"split_data_large/ebnerd_{out_split_name}_history.parquet", index=False)
+
+        users_df = build_user_features(beh_df, hist_df)
+        users_df.to_parquet(f"split_data_large/ebnerd_{out_split_name}_users.parquet", index=False)
+        
+        print(f"EB-NeRD {split} processing completed.")
 
 if __name__ == "__main__":
     run_q1_mind()

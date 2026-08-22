@@ -97,9 +97,14 @@ def score_faiss(article_embeddings, id_to_idx, history, candidates):
         for c in candidates
     ])
 
-def evaluate(behaviours_df, method, index_bundle, popularity):
+def evaluate(behaviours_df, method, index_bundle, popularity, history_path=None):
     rows = {"all": [], "cold": [], "warm": []}
     rec_sets = {"all": set(), "cold": set(), "warm": set()}
+
+    history_dict = {}
+    if history_path and os.path.exists(history_path):
+        history_df = pd.read_parquet(history_path)
+        history_dict = dict(zip(history_df['user_id'], history_df['history']))
 
     for row in tqdm(behaviours_df.itertuples(index=False), total=len(behaviours_df), desc=f"Offline Evaluation [{method}]"):
         raw_candidates, raw_labels = row.candidates, row.labels
@@ -119,10 +124,15 @@ def evaluate(behaviours_df, method, index_bundle, popularity):
         if len(set(labels)) < 2: 
             continue
 
-        if isinstance(row.history, (list, np.ndarray)):
-            history = [str(x) for x in row.history]
-        elif isinstance(row.history, str):
-            history = row.history.strip().split()
+        if hasattr(row, 'history'):
+            raw_history = row.history
+        else:
+            raw_history = history_dict.get(row.user_id, [])
+
+        if isinstance(raw_history, (list, np.ndarray)):
+            history = [str(x) for x in raw_history]
+        elif isinstance(raw_history, str):
+            history = raw_history.strip().split()
         else:
             history = []
 
@@ -183,7 +193,7 @@ def write_results(f, dataset_name, method, summary):
         f.write(f"    coverage: {res['coverage']:.4f}\n")
     f.write("\n")
 
-def run_q4_dataset(dataset_name, train_path, val_path, bm25_index_path, faiss_index_path, language="english"):
+def run_q4_dataset(dataset_name, train_path, val_path, bm25_index_path, faiss_index_path, language="english", val_history_path=None):
     print(f"Running Offline Evaluation for {dataset_name}...")
 
     train_df = pd.read_parquet(train_path)
@@ -205,7 +215,7 @@ def run_q4_dataset(dataset_name, train_path, val_path, bm25_index_path, faiss_in
                 "id_to_idx": bm25_id_to_idx if method == "bm25" else faiss_id_to_idx,
                 "embeddings": faiss_embeddings, "emb_id_to_idx": faiss_id_to_idx,
             }
-            rows, rec_sets = evaluate(val_df, method, index_bundle, popularity)
+            rows, rec_sets = evaluate(val_df, method, index_bundle, popularity, history_path=val_history_path)
             summary = summarize(rows, rec_sets, catalog_size)
             write_results(f, dataset_name, method, summary)
 
@@ -227,6 +237,7 @@ def run_q4():
         bm25_index_path="bm25_indexes_large/ebnerd_large_bm25.pkl",
         faiss_index_path="faiss_indexes_large/ebnerd_large_faiss.pkl",
         language="danish",
+        val_history_path="split_data_large/ebnerd_val_history.parquet"
     )
 
 if __name__ == "__main__":

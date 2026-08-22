@@ -7,7 +7,6 @@ from tqdm import tqdm
 import os
 import pickle
 
-#This saving part was also slighly AI-generated
 def save_faiss_index(index, article_ids, article_embeddings, id_to_idx, filepath):
     dirname = os.path.dirname(filepath)
     if dirname:
@@ -72,7 +71,7 @@ def build_user_query_embedding(user_history, article_embeddings, id_to_idx, max_
     faiss.normalize_L2(user_vector)
     return user_vector
 
-def evaluate_faiss(behaviours_df, embeddings_df, index_path=None, k_list=[50, 100, 200], max_history_length=5):
+def evaluate_faiss(behaviours_df, embeddings_df, index_path=None, k_list=[50, 100, 200], max_history_length=5, history_path=None):
     if index_path and os.path.exists(index_path):
         index, article_ids, article_embeddings, id_to_idx = load_faiss_index(index_path)
     else:
@@ -83,13 +82,23 @@ def evaluate_faiss(behaviours_df, embeddings_df, index_path=None, k_list=[50, 10
     global_centroid = np.mean(article_embeddings, axis=0, keepdims=True).astype(np.float32)
     faiss.normalize_L2(global_centroid)
 
+    history_dict = {}
+    if history_path and os.path.exists(history_path):
+        history_df = pd.read_parquet(history_path)
+        history_dict = dict(zip(history_df['user_id'], history_df['history']))
+
     recalls = {k: [] for k in k_list}
     max_k = max(k_list)
 
-    for _, row in tqdm(behaviours_df.iterrows(), total=len(behaviours_df), desc="Evaluating FAISS"):
+    for row in tqdm(behaviours_df.itertuples(index=False), total=len(behaviours_df), desc="Evaluating FAISS"):
 
-        raw_candidates = row['candidates']
-        raw_labels = row['labels']
+        if hasattr(row, 'history'):
+            user_history = row.history
+        else:
+            user_history = history_dict.get(row.user_id, [])
+
+        raw_candidates = row.candidates
+        raw_labels = row.labels
 
         if raw_candidates is None or raw_labels is None:
             continue
@@ -108,7 +117,6 @@ def evaluate_faiss(behaviours_df, embeddings_df, index_path=None, k_list=[50, 10
         if not relevant_articles:
             continue
 
-        user_history = row['history']
         user_query_embedding = build_user_query_embedding(user_history, article_embeddings, id_to_idx, max_history_length=max_history_length)
         
         if user_query_embedding is None:
@@ -127,12 +135,18 @@ def evaluate_faiss(behaviours_df, embeddings_df, index_path=None, k_list=[50, 10
     avg_recalls = {k: float(np.mean(recalls[k])) if recalls[k] else 0.0 for k in k_list}
     return avg_recalls
 
-def run_q3_dataset(dataset_name, behaviors_path, articles_path, index_path, k_list=[50, 100, 200]):
+def run_q3_dataset(dataset_name, behaviors_path, articles_path, index_path, k_list=[50, 100, 200], history_path=None):
     print(f"Evaluating FAISS Semantic Retrieval for {dataset_name}...")
     behaviours_df = pd.read_parquet(behaviors_path)
     articles_df = pd.read_parquet(articles_path)
 
-    avg_recalls = evaluate_faiss(behaviours_df, articles_df, index_path=index_path, k_list=k_list)
+    avg_recalls = evaluate_faiss(
+        behaviours_df, 
+        articles_df, 
+        index_path=index_path, 
+        k_list=k_list, 
+        history_path=history_path
+    )
     
     print(f"Dataset: {dataset_name}")
     for k, recall in avg_recalls.items():
@@ -155,7 +169,8 @@ def run_q3():
         dataset_name="EB-NeRD Large Validation",
         behaviors_path="split_data_large/ebnerd_val.parquet",
         articles_path="processed_data_large/ebnerd_articles_large.parquet",
-        index_path="faiss_indexes_large/ebnerd_large_faiss.pkl"
+        index_path="faiss_indexes_large/ebnerd_large_faiss.pkl",
+        history_path="split_data_large/ebnerd_val_history.parquet"
     )
 
 if __name__ == "__main__":
