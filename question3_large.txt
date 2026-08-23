@@ -1,5 +1,0 @@
-Dataset: MIND-Large Validation
-Average Recall@50: 0.0080
-Average Recall@100: 0.0132
-Average Recall@200: 0.0222
-
