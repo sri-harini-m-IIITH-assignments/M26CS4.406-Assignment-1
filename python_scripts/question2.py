@@ -30,6 +30,7 @@ def tokenize(text, stop_words=None):
         tokens = [t for t in tokens if t not in stop_words]
     return tokens
 
+#This saving part was also slighly AI-generated
 def save_bm25_index(bm25, article_ids, article_dict, filepath):
     dirname = os.path.dirname(filepath)
     if dirname:
@@ -104,6 +105,7 @@ def evaluate_bm25(behaviours_df, articles_df, index_path=None, language="english
     max_k = max(k_list)
 
     # Caching dictionary to skip re-running identical history queries
+    # The caching part is Ai-generated as the original ran very slowly 
     query_cache = {}
 
     history_dict = {}

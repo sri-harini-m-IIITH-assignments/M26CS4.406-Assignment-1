@@ -6,32 +6,32 @@ from python_scripts_large.question3_large import run_q3
 from python_scripts_large.question4_large import run_q4
 
 def main():
-    #run_q1_mind()
-    # run_q1_ebnerd()
+    run_q1_mind()
+    run_q1_ebnerd()
 
-    # run_q2()
-    # run_q3()
-    # run_q4()
+    run_q2()
+    run_q3()
+    run_q4()
 
     configs = [
-        # {
-        #     "dataset_type": "mind",
-        #     "test_path_or_dir": "data_large/MINDlarge_test/behaviors.tsv",
-        #     "method": "bm25",
-        #     "bm25_index_path": "bm25_indexes_large/mind_bm25.pkl",
-        #     "faiss_index_path": "faiss_indexes_large/mind_faiss.pkl",
-        #     "language": "english",
-        #     "output_dir": "predictions_output/mind_bm25",
-        # },
-        # {
-        #     "dataset_type": "mind",
-        #     "test_path_or_dir": "data_large/MINDlarge_test/behaviors.tsv",
-        #     "method": "faiss",
-        #     "bm25_index_path": "bm25_indexes_large/mind_bm25.pkl",
-        #     "faiss_index_path": "faiss_indexes_large/mind_faiss.pkl",
-        #     "language": "english",
-        #     "output_dir": "predictions_output/mind_faiss",
-        # },
+        {
+            "dataset_type": "mind",
+            "test_path_or_dir": "data_large/MINDlarge_test/behaviors.tsv",
+            "method": "bm25",
+            "bm25_index_path": "bm25_indexes_large/mind_bm25.pkl",
+            "faiss_index_path": "faiss_indexes_large/mind_faiss.pkl",
+            "language": "english",
+            "output_dir": "predictions_output/mind_bm25",
+        },
+        {
+            "dataset_type": "mind",
+            "test_path_or_dir": "data_large/MINDlarge_test/behaviors.tsv",
+            "method": "faiss",
+            "bm25_index_path": "bm25_indexes_large/mind_bm25.pkl",
+            "faiss_index_path": "faiss_indexes_large/mind_faiss.pkl",
+            "language": "english",
+            "output_dir": "predictions_output/mind_faiss",
+        },
         {
             "dataset_type": "ebnerd",
             "test_path_or_dir": "data_large/ebnerd_testset/test",  

@@ -175,13 +175,13 @@ def run_q2_dataset(dataset_name, behaviors_path, articles_path, index_path, lang
         f.write("\n")
 
 def run_q2():
-    # run_q2_dataset(
-    #     dataset_name="MIND-Large Validation",
-    #     behaviors_path="split_data_large/mind_dev.parquet",
-    #     articles_path="processed_data_large/mind_news_dev.parquet",
-    #     index_path="bm25_indexes_large/mind_bm25.pkl",
-    #     language="english"
-    # )
+    run_q2_dataset(
+        dataset_name="MIND-Large Validation",
+        behaviors_path="split_data_large/mind_dev.parquet",
+        articles_path="processed_data_large/mind_news_dev.parquet",
+        index_path="bm25_indexes_large/mind_bm25.pkl",
+        language="english"
+    )
     run_q2_dataset(
         dataset_name="EB-NeRD Large Validation",
         behaviors_path="split_data_large/ebnerd_val.parquet",
