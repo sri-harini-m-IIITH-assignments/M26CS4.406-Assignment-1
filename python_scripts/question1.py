@@ -41,8 +41,8 @@ def assert_no_future_leakage(train_df, val_df, test_df):
 def clean_mind_news():
     #Function to clean the mind dataset (news.tsv)
     news_cols = ["article_id", "category", "subcategory", "title", "abstract", "url", "title_entities", "abstract_entities"]
-    MINDsmall_train = pd.read_csv("data/MINDsmall_train/news.tsv", sep="\t", header=None, names=news_cols, usecols=["article_id", "category", "subcategory", "title", "abstract", "title_entities", "abstract_entities"])
-    MINDsmall_dev = pd.read_csv("data/MINDsmall_dev/news.tsv", sep="\t", header=None, names=news_cols, usecols=["article_id", "category", "subcategory", "title", "abstract", "title_entities", "abstract_entities"])
+    MINDsmall_train = pd.read_csv("data/MINDsmall_train/MINDsmall_train/news.tsv", sep="\t", header=None, names=news_cols, usecols=["article_id", "category", "subcategory", "title", "abstract", "title_entities", "abstract_entities"])
+    MINDsmall_dev = pd.read_csv("data/MINDsmall_dev/MINDsmall_dev/news.tsv", sep="\t", header=None, names=news_cols, usecols=["article_id", "category", "subcategory", "title", "abstract", "title_entities", "abstract_entities"])
 
     news_combined = pd.concat([MINDsmall_train, MINDsmall_dev], ignore_index=True)
     news_combined = news_combined.drop_duplicates(subset="article_id")
@@ -62,8 +62,8 @@ def clean_mind_news():
 def clean_mind_behaviors():
     #Function to clean the mind dataset (behaviors.tsv)
     behaviors_cols = ["impression_id", "user_id", "timestamp", "history", "impressions"]
-    MINDsmall_train = pd.read_csv("data/MINDsmall_train/behaviors.tsv", sep="\t", header=None, names=behaviors_cols, usecols=["impression_id", "user_id", "timestamp", "history", "impressions"])
-    MINDsmall_dev = pd.read_csv("data/MINDsmall_dev/behaviors.tsv", sep="\t", header=None, names=behaviors_cols, usecols=["impression_id", "user_id", "timestamp", "history", "impressions"])
+    MINDsmall_train = pd.read_csv("data/MINDsmall_train/MINDsmall_train/behaviors.tsv", sep="\t", header=None, names=behaviors_cols, usecols=["impression_id", "user_id", "timestamp", "history", "impressions"])
+    MINDsmall_dev = pd.read_csv("data/MINDsmall_dev/MINDsmall_dev/behaviors.tsv", sep="\t", header=None, names=behaviors_cols, usecols=["impression_id", "user_id", "timestamp", "history", "impressions"])
 
     behaviors_combined = pd.concat([MINDsmall_train, MINDsmall_dev], ignore_index=True)
     behaviors_combined = behaviors_combined.drop_duplicates(subset="impression_id")

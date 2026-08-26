@@ -12,5 +12,7 @@ faiss_indexes/
 processed_data_large/
 data_large/
 split_data_large/
+bm25_indexes_large/
+faiss_indexes_large/
 predictions_output/
 .venv/

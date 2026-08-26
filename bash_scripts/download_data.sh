@@ -37,8 +37,8 @@ extract () {
 echo "Downloading EB-NeRD datasets"
 download "https://ebnerd-dataset.s3.eu-west-1.amazonaws.com/ebnerd_demo.zip" "./zip/ebnerd_demo.zip"
 download "https://ebnerd-dataset.s3.eu-west-1.amazonaws.com/ebnerd_small.zip" "./zip/ebnerd_small.zip"
-download "https://ebnerd-dataset.s3.eu-west-1.amazonaws.com/artifacts/Ekstra_Bladet_word2vec.zip" "./zip/Ekstra_Bladet_word2vec.zip"
-download "https://ebnerd-dataset.s3.eu-west-1.amazonaws.com/artifacts/google_bert_base_multilingual_cased.zip" "./zip/google_bert_base_multilingual_cased.zip"
+# download "https://ebnerd-dataset.s3.eu-west-1.amazonaws.com/artifacts/Ekstra_Bladet_word2vec.zip" "./zip/Ekstra_Bladet_word2vec.zip"
+# download "https://ebnerd-dataset.s3.eu-west-1.amazonaws.com/artifacts/google_bert_base_multilingual_cased.zip" "./zip/google_bert_base_multilingual_cased.zip"
 
 echo "Downloading MIND datasets"
 #Would do wget but getting some 401 error so had to modify it to this
@@ -56,8 +56,8 @@ download "https://mind201910small.blob.core.windows.net/release/MINDsmall_dev.zi
 echo "Extracting zip files"
 extract "./zip/ebnerd_demo.zip" "./data/ebnerd_demo"
 extract "./zip/ebnerd_small.zip" "./data/ebnerd_small"
-extract "./zip/Ekstra_Bladet_word2vec.zip" "./data/Ekstra_Bladet_word2vec"
-extract "./zip/google_bert_base_multilingual_cased.zip" "./data/google_bert_base_multilingual_cased"
+# extract "./zip/Ekstra_Bladet_word2vec.zip" "./data/Ekstra_Bladet_word2vec"
+# extract "./zip/google_bert_base_multilingual_cased.zip" "./data/google_bert_base_multilingual_cased"
 extract "./zip/MINDsmall_train.zip" "./data/MINDsmall_train"
 extract "./zip/MINDsmall_dev.zip" "./data/MINDsmall_dev"
 # extract "./zip/MINDlarge_train.zip" "./data/MINDlarge_train"

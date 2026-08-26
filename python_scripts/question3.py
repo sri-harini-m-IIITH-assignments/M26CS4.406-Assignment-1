@@ -46,7 +46,7 @@ def build_faiss_index(embeddings_df):
     
     return index, article_ids, article_embeddings, id_to_idx
 
-def build_user_query_embedding(user_history, article_embeddings, id_to_idx, max_history_length=5):
+def build_user_query_embedding(user_history, article_embeddings, id_to_idx, max_history_length=None):
     if user_history is None:
         return None
 
@@ -60,7 +60,7 @@ def build_user_query_embedding(user_history, article_embeddings, id_to_idx, max_
     if len(history_list) == 0:
         return None
 
-    recent_history = history_list[-max_history_length:]
+    recent_history = history_list if max_history_length is None else history_list[-max_history_length:]
     valid_indices = [id_to_idx[aid] for aid in recent_history if aid in id_to_idx]
 
     if not valid_indices:
@@ -72,7 +72,7 @@ def build_user_query_embedding(user_history, article_embeddings, id_to_idx, max_
     faiss.normalize_L2(user_vector)
     return user_vector
 
-def evaluate_faiss(behaviours_df, embeddings_df, index_path=None, k_list=[50, 100, 200], max_history_length=5):
+def evaluate_faiss(behaviours_df, embeddings_df, index_path=None, k_list=[50, 100, 200], max_history_length=None):
     if index_path and os.path.exists(index_path):
         index, article_ids, article_embeddings, id_to_idx = load_faiss_index(index_path)
     else:

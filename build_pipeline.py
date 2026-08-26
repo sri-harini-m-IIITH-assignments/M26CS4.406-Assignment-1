@@ -22,14 +22,8 @@ def setup_environment():
         print(f"Switching Python interpreter to virtual environment: {venv_python}\n")
         os.execv(venv_python, [venv_python] + sys.argv)
 
-# Run setup / venv switch BEFORE importing anything that depends on
-# packages from requirements.txt (e.g. sentence-transformers). If we're
-# not already running inside .venv, this will re-exec into it.
-setup_environment()
+# setup_environment()
 
-# Safe to import now: either .venv didn't exist yet and setup_env.sh just
-# installed into the currently running interpreter's environment, or we
-# already got re-exec'd into .venv/bin/python.
 from python_scripts.question1 import run_q1
 from python_scripts.question2 import run_q2
 from python_scripts.question3 import run_q3

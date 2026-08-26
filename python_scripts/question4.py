@@ -1,5 +1,6 @@
 # Pipeline for Part I: Q4. Offline Evaluation Harness
 
+import os
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
@@ -7,7 +8,6 @@ from sklearn.metrics import roc_auc_score, ndcg_score
 from python_scripts.question2 import build_user_query, get_stop_words, load_bm25_index
 from python_scripts.question3 import build_user_query_embedding, load_faiss_index
 from collections import Counter
-
 
 COLD_START_THRESHOLD = 5
 K_LIST_BEYOND_ACCURACY = 10 
@@ -51,8 +51,8 @@ def coverage_at_k(rec_sets, catalog_size):
 
 def compute_item_popularity(train_behaviours_df):
     counter, total = Counter(), 0
-    for _, row in train_behaviours_df.iterrows():
-        candidates, labels = row["candidates"], row["labels"]
+    for row in train_behaviours_df.itertuples(index=False):
+        candidates, labels = getattr(row, 'candidates', None), getattr(row, 'labels', None)
         if candidates is None or labels is None:
             continue
         for c, l in zip(candidates, labels):
@@ -60,13 +60,6 @@ def compute_item_popularity(train_behaviours_df):
                 counter[str(c)] += 1
                 total += 1
     return {aid: cnt / total for aid, cnt in counter.items()} if total else {}
-
-def score_bm25(bm25, article_id_to_idx, article_dict, stop_words, history, candidates):
-    query_tokens = build_user_query(history, article_dict, stop_words=stop_words)
-    if not query_tokens:
-        return np.zeros(len(candidates))
-    all_scores = bm25.get_scores(query_tokens)
-    return np.array([all_scores[article_id_to_idx[c]] if c in article_id_to_idx else -1e9 for c in candidates])
 
 def score_faiss(article_embeddings, id_to_idx, history, candidates):
     user_vec = build_user_query_embedding(history, article_embeddings, id_to_idx)
@@ -77,30 +70,69 @@ def score_faiss(article_embeddings, id_to_idx, history, candidates):
         for c in candidates
     ])
 
-def evaluate(behaviours_df, method, index_bundle, popularity):
+def evaluate(behaviours_df, method, index_bundle, popularity, history_path=None):
     rows = {"all": [], "cold": [], "warm": []}
     rec_sets = {"all": set(), "cold": set(), "warm": set()}
 
-    for _, row in tqdm(behaviours_df.iterrows(), total=len(behaviours_df), desc=f"Offline Evaluation [{method}]"):
-        candidates, labels = row["candidates"], row["labels"]
-        if candidates is None or labels is None or len(candidates) == 0:
+    history_dict = {}
+    if history_path and os.path.exists(history_path):
+        history_df = pd.read_parquet(history_path)
+        history_dict = dict(zip(history_df['user_id'], history_df['history']))
+
+    # Cache to avoid recomputing corpus-wide BM25 scores for duplicate user histories
+    bm25_cache = {}
+
+    for row in tqdm(behaviours_df.itertuples(index=False), total=len(behaviours_df), desc=f"Offline Evaluation [{method}]"):
+        raw_candidates = getattr(row, 'candidates', None)
+        raw_labels = getattr(row, 'labels', None)
+
+        if raw_candidates is None or raw_labels is None:
             continue
-        candidates = [str(c).strip() for c in candidates]
-        labels = [int(l) for l in labels]
+
+        if isinstance(raw_candidates, str):
+            candidates = raw_candidates.strip().split()
+        else:
+            candidates = [str(c).strip() for c in raw_candidates]
+
+        if isinstance(raw_labels, str):
+            labels = [int(l) for l in raw_labels.strip().split()]
+        else:
+            labels = [int(l) for l in raw_labels]
+
         if len(set(labels)) < 2: 
             continue
 
-        if isinstance(row["history"], (list, np.ndarray)):
-            history = [str(x) for x in row["history"]]
-        elif isinstance(row["history"], str):
-            history = row["history"].strip().split()
+        if hasattr(row, 'history'):
+            raw_history = row.history
+        else:
+            raw_history = history_dict.get(getattr(row, 'user_id', None), [])
+
+        if isinstance(raw_history, (list, np.ndarray)):
+            history = [str(x) for x in raw_history]
+        elif isinstance(raw_history, str):
+            history = raw_history.strip().split()
         else:
             history = []
+
         slice_name = "cold" if len(history) <= COLD_START_THRESHOLD else "warm"
+        history_key = tuple(history) if isinstance(history, list) else history
 
         if method == "bm25":
-            scores = score_bm25(index_bundle["bm25"], index_bundle["id_to_idx"],
-                                 index_bundle["article_dict"], index_bundle["stop_words"], history, candidates)
+            if history_key in bm25_cache:
+                all_scores = bm25_cache[history_key]
+            else:
+                query_tokens = build_user_query(history, index_bundle["article_dict"], stop_words=index_bundle["stop_words"])
+                if not query_tokens:
+                    all_scores = None
+                else:
+                    all_scores = index_bundle["bm25"].get_scores(query_tokens)
+                bm25_cache[history_key] = all_scores
+
+            if all_scores is None:
+                scores = np.zeros(len(candidates))
+            else:
+                article_id_to_idx = index_bundle["id_to_idx"]
+                scores = np.array([all_scores[article_id_to_idx[c]] if c in article_id_to_idx else -1e9 for c in candidates])
         else:
             scores = score_faiss(index_bundle["embeddings"], index_bundle["id_to_idx"], history, candidates)
 
@@ -151,7 +183,7 @@ def write_results(f, dataset_name, method, summary):
         f.write(f"    coverage: {res['coverage']:.4f}\n")
     f.write("\n")
 
-def run_q4_dataset(dataset_name, train_path, val_path, bm25_index_path, faiss_index_path, language="english"):
+def run_q4_dataset(dataset_name, train_path, val_path, bm25_index_path, faiss_index_path, language="english", val_history_path=None):
     print(f"Running Offline Evaluation for {dataset_name}...")
 
     train_df = pd.read_parquet(train_path)
@@ -173,7 +205,7 @@ def run_q4_dataset(dataset_name, train_path, val_path, bm25_index_path, faiss_in
                 "id_to_idx": bm25_id_to_idx if method == "bm25" else faiss_id_to_idx,
                 "embeddings": faiss_embeddings, "emb_id_to_idx": faiss_id_to_idx,
             }
-            rows, rec_sets = evaluate(val_df, method, index_bundle, popularity)
+            rows, rec_sets = evaluate(val_df, method, index_bundle, popularity, history_path=val_history_path)
             summary = summarize(rows, rec_sets, catalog_size)
             write_results(f, dataset_name, method, summary)
 

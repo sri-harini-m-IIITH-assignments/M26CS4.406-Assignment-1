@@ -30,7 +30,6 @@ def tokenize(text, stop_words=None):
         tokens = [t for t in tokens if t not in stop_words]
     return tokens
 
-#This saving part was also slighly AI-generated
 def save_bm25_index(bm25, article_ids, article_dict, filepath):
     dirname = os.path.dirname(filepath)
     if dirname:
@@ -60,7 +59,7 @@ def build_bm25_index(article_df, stop_words=None):
     bm25 = BM25Okapi(tokenized_articles)
     return bm25, article_ids, article_dict
 
-def build_user_query(user_history, article_dict, stop_words=None, max_history_length=5):
+def build_user_query(user_history, article_dict, stop_words=None, max_history_length=None):
     if user_history is None:
         return []
 
@@ -74,7 +73,7 @@ def build_user_query(user_history, article_dict, stop_words=None, max_history_le
     if len(history_list) == 0:
         return []
 
-    recent_history = history_list[-max_history_length:]
+    recent_history = history_list if max_history_length is None else history_list[-max_history_length:]
     query_titles = [article_dict[article_id] for article_id in recent_history if article_id in article_dict]
     query_text = " ".join(query_titles)
     return tokenize(query_text, stop_words=stop_words)
@@ -92,7 +91,7 @@ def retrieve_top_k(bm25, article_ids, user_query, k=200):
         
     return [article_ids[i] for i in top_k_indices]
 
-def evaluate_bm25(behaviours_df, articles_df, index_path=None, language="english", k_list=[50, 100, 200], max_history_length=5):
+def evaluate_bm25(behaviours_df, articles_df, index_path=None, language="english", k_list=[50, 100, 200], max_history_length=None, history_path=None):
     stop_words = get_stop_words(language)
     if index_path and os.path.exists(index_path):
         bm25, article_ids, article_dict = load_bm25_index(index_path)
@@ -104,13 +103,25 @@ def evaluate_bm25(behaviours_df, articles_df, index_path=None, language="english
     recalls = {k: [] for k in k_list}
     max_k = max(k_list)
 
-    #The caching part is Ai-generated as the original ran very slowly 
+    # Caching dictionary to skip re-running identical history queries
     query_cache = {}
 
-    for _, row in tqdm(behaviours_df.iterrows(), total=len(behaviours_df), desc="Evaluating BM25"):
-        
-        raw_candidates = row['candidates']
-        raw_labels = row['labels']
+    history_dict = {}
+    if history_path and os.path.exists(history_path):
+        history_df = pd.read_parquet(history_path)
+        history_dict = dict(zip(history_df['user_id'], history_df['history']))
+
+    for row in tqdm(behaviours_df.itertuples(index=False), total=len(behaviours_df), desc="Evaluating BM25"):
+        if hasattr(row, 'history'):
+            user_history = row.history
+        else:
+            user_history = history_dict.get(getattr(row, 'user_id', None), [])
+
+        if user_history is None or (isinstance(user_history, (str, list, np.ndarray)) and len(user_history) == 0):
+            continue
+
+        raw_candidates = getattr(row, 'candidates', None)
+        raw_labels = getattr(row, 'labels', None)
 
         if raw_candidates is None or raw_labels is None:
             continue
@@ -129,18 +140,17 @@ def evaluate_bm25(behaviours_df, articles_df, index_path=None, language="english
         if not relevant_articles:
             continue
 
-        user_history = row['history']
-        user_query = build_user_query(user_history, article_dict, stop_words=stop_words, max_history_length=max_history_length)
+        history_key = tuple(user_history) if not isinstance(user_history, str) else user_history
 
-        query_key = tuple(user_query)
-
-        if not query_key:
-            top_max_k_articles = []
-        elif query_key in query_cache:
-            top_max_k_articles = query_cache[query_key]
+        if history_key in query_cache:
+            top_max_k_articles = query_cache[history_key]
         else:
-            top_max_k_articles = retrieve_top_k(bm25, article_ids, user_query, k=max_k)
-            query_cache[query_key] = top_max_k_articles
+            user_query = build_user_query(user_history, article_dict, stop_words=stop_words, max_history_length=max_history_length)
+            if not user_query:
+                top_max_k_articles = []
+            else:
+                top_max_k_articles = retrieve_top_k(bm25, article_ids, user_query, k=max_k)
+            query_cache[history_key] = top_max_k_articles
 
         for k in k_list:
             retrieved_k = set(top_max_k_articles[:k])
@@ -151,12 +161,12 @@ def evaluate_bm25(behaviours_df, articles_df, index_path=None, language="english
     avg_recalls = {k: float(np.mean(recalls[k])) if recalls[k] else 0.0 for k in k_list}
     return avg_recalls
 
-def run_q2_dataset(dataset_name, behaviors_path, articles_path, index_path, language="english", k_list=[50, 100, 200]):
+def run_q2_dataset(dataset_name, behaviors_path, articles_path, index_path, language="english", k_list=[50, 100, 200], history_path=None):
     print(f"Evaluating BM25 for {dataset_name} dataset...")
     behaviours_df = pd.read_parquet(behaviors_path)
     articles_df = pd.read_parquet(articles_path)
 
-    avg_recalls = evaluate_bm25(behaviours_df, articles_df, index_path=index_path, language=language, k_list=k_list)
+    avg_recalls = evaluate_bm25(behaviours_df, articles_df, index_path=index_path, language=language, k_list=k_list, history_path=history_path)
     
     print(f"Dataset: {dataset_name}")
     for k, recall in avg_recalls.items():

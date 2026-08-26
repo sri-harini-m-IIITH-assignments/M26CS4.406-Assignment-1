@@ -1,3 +1,5 @@
+N = 5
+
 Dataset: MIND-Small Validation
 Average Recall@50: 0.0135
 Average Recall@100: 0.0211
@@ -7,4 +9,28 @@ Dataset: EB-NeRD Validation
 Average Recall@50: 0.0078
 Average Recall@100: 0.0139
 Average Recall@200: 0.0262
+
+N = Full Hisotry
+
+Dataset: MIND-Small Validation
+Average Recall@50: 0.0119
+Average Recall@100: 0.0198
+Average Recall@200: 0.0322
+
+Dataset: EB-NeRD Validation
+Average Recall@50: 0.0040
+Average Recall@100: 0.0111
+Average Recall@200: 0.0189
+
+N = 15
+
+Dataset: MIND-Small Validation
+Average Recall@50: 0.0128
+Average Recall@100: 0.0206
+Average Recall@200: 0.0334
+
+Dataset: EB-NeRD Validation
+Average Recall@50: 0.0076
+Average Recall@100: 0.0129
+Average Recall@200: 0.0255
 
