@@ -115,7 +115,7 @@ Each stage below maps directly to a numbered question in the assignment brief.
   - **Accuracy metrics:** AUC, MRR, NDCG@5, NDCG@10
   - **Beyond-accuracy metrics:** intra-list diversity@10, novelty@10
     (popularity-weighted), and catalog coverage@10
-- Slices results into `all`, `cold` (≤5 history items), and `warm` user
+- Slices results into `all`, `cold`, and `warm` user
   segments.
 - Reports each metric with a bootstrapped 95% confidence interval
   (1000 resamples).
